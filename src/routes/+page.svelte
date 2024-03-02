@@ -28,7 +28,14 @@
 			stats: { x: 1445, y: 400, w: 400, h: 190 },
 			set: { x: 1400, y: 610, w: 447, h: 29 }
 		},
-		{ width: 1600, height: 900, preview: { x: 1165, y: 140, w: 377, h: 430 } }
+		{
+			width: 1600,
+			height: 900,
+			preview: { x: 1165, y: 140, w: 377, h: 430 },
+			piece: { x: 1165, y: 140, w: 377, h: 27 },
+			stats: { x: 1205, y: 365, w: 330, h: 155 },
+			set: { x: 1169, y: 542, w: 337, h: 23 }
+		}
 	];
 
 	async function startCapture() {
@@ -59,40 +66,38 @@
 
 		const artifact = await {
 			piece: (await parse('piece')).data.text,
-			stats: (await parse('stats')).data.text,
+			stats: (await parse('stats')).data.text.split('\n'),
 			set: (await parse('set')).data.text
 		};
 
 		artifacts = [...artifacts, artifact];
-		console.log(artifacts);
 
 		artifactText = '';
 		artifactText += artifact.piece;
-		artifactText += artifact.stats;
-		artifactText += artifact.set;
+		artifactText += artifact.stats.join('\n');
 	}
 
-	async function parse(line: string) {
-		const imgURI = videoToURL(line);
+	async function parse(rect: string) {
+		const imgURI = videoToURL(rect);
 		const ret = await worker.recognize(imgURI);
-		console.log(ret.data.text);
+		console.log(ret);
 		return ret;
 	}
 
-	function videoToURL(line: string) {
+	function videoToURL(rect: string) {
 		const res = resolutions[parseInt(resolution)];
-		canvas.width = res[line].w;
-		canvas.height = res[line].h;
+		canvas.width = res[rect].w;
+		canvas.height = res[rect].h;
 		ctx.drawImage(
 			video,
-			res[line].x,
-			res[line].y,
-			res[line].w,
-			res[line].h,
+			res[rect].x,
+			res[rect].y,
+			res[rect].w,
+			res[rect].h,
 			0,
 			0,
-			res[line].w,
-			res[line].h
+			res[rect].w,
+			res[rect].h
 		);
 		return canvas.toDataURL('img/png');
 	}
