@@ -1,13 +1,18 @@
 <script lang="ts">
+	import Artifact from '../components/Artifact.svelte';
 	import { onMount } from 'svelte';
 	import Tesseract from 'tesseract.js';
 
 	let video: HTMLVideoElement;
 	let img: HTMLImageElement;
+	let pieceImg: HTMLImageElement;
+	let statsImg: HTMLImageElement;
+	let setImg: HTMLImageElement;
 
 	let capturing = false;
-
 	let resolution: string;
+	let artifactText = '';
+	let artifacts = [];
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D;
@@ -15,8 +20,15 @@
 	let worker: Tesseract.Worker;
 
 	const resolutions = [
-		{ width: 1920, height: 1080, x: 1400, y: 130, w: 447, h: 510 },
-		{ width: 1600, height: 900, x: 1165, y: 140, w: 377, h: 430 }
+		{
+			width: 1920,
+			height: 1080,
+			preview: { x: 1400, y: 134, w: 447, h: 511 },
+			piece: { x: 1400, y: 134, w: 447, h: 30 },
+			stats: { x: 1445, y: 400, w: 400, h: 190 },
+			set: { x: 1400, y: 610, w: 447, h: 29 }
+		},
+		{ width: 1600, height: 900, preview: { x: 1165, y: 140, w: 377, h: 430 } }
 	];
 
 	async function startCapture() {
@@ -42,33 +54,52 @@
 	}
 
 	async function scan() {
-		let res = resolutions[parseInt(resolution)];
-		const sx = res['x'];
-		const sy = res['y'];
-		const sWidth = res['w'];
-		const sHeight = res['h'];
-
-		canvas.width = sWidth;
-		canvas.height = sHeight;
-
-		ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
-		const imgURI = canvas.toDataURL('image/png');
+		const imgURI = videoToURL('preview');
 		img.src = imgURI;
 
+		const artifact = await {
+			piece: (await parse('piece')).data.text,
+			stats: (await parse('stats')).data.text,
+			set: (await parse('set')).data.text
+		};
+
+		artifacts = [...artifacts, artifact];
+		console.log(artifacts);
+
+		artifactText = '';
+		artifactText += artifact.piece;
+		artifactText += artifact.stats;
+		artifactText += artifact.set;
+	}
+
+	async function parse(line: string) {
+		const imgURI = videoToURL(line);
 		const ret = await worker.recognize(imgURI);
 		console.log(ret.data.text);
+		return ret;
+	}
+
+	function videoToURL(line: string) {
+		const res = resolutions[parseInt(resolution)];
+		canvas.width = res[line].w;
+		canvas.height = res[line].h;
+		ctx.drawImage(
+			video,
+			res[line].x,
+			res[line].y,
+			res[line].w,
+			res[line].h,
+			0,
+			0,
+			res[line].w,
+			res[line].h
+		);
+		return canvas.toDataURL('img/png');
 	}
 
 	onMount(() => {
 		canvas = document.createElement('canvas');
 		ctx = canvas.getContext('2d');
-
-		video.addEventListener('playing', (e) => {
-			const width = video.videoWidth;
-			const height = video.videoHeight;
-			canvas.width = width;
-			canvas.height = height;
-		});
 	});
 
 	(async () => {
@@ -78,12 +109,23 @@
 
 <div class="h-full w-full flex flex-col">
 	<div class="w-full flex flex-col items-center grow-1 p-4 gap-4 bg-zinc-800">
-		<div class="flex flex-row justify-center items-center gap-4">
+		<div class="flex flex-row justify-center items-center gap-4" class:hidden={!capturing}>
 			<video bind:this={video} autoplay class="max-h-72 border-0 border-zinc-200">
 				<track kind="captions" />
 			</video>
-			<img bind:this={img} class="max-h-72 w-auto" />
+			<div class="flex flex-col gap-4">
+				<img bind:this={img} class="max-h-72 w-auto" />
+			</div>
+			<pre>{artifactText}</pre>
 		</div>
+		{#if !capturing}
+			<div class="max-w-xl">
+				<p>
+					Welcome to Artifact Cam, a tool for scanning artifacts in <i>Genshin Impact</i> and
+					<i>Honkai: Star Rail</i>.
+				</p>
+			</div>
+		{/if}
 		<div class="flex flex-row justify-center gap-2">
 			{#if !capturing}
 				<button on:click={startCapture} class="rounded-md p-2 bg-green-700 shadow-md">
@@ -102,5 +144,11 @@
 			{/if}
 		</div>
 	</div>
-	<div class="grow-1 p-2"></div>
+	<div class="grow-1 p-4">
+		<div class="flex gap-4 flex-wrap">
+			{#each artifacts as artifact}
+				<Artifact {artifact} />
+			{/each}
+		</div>
+	</div>
 </div>
