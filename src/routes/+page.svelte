@@ -1,40 +1,50 @@
 <script lang="ts">
 	import Artifact from '../components/Artifact.svelte';
 	import { onMount } from 'svelte';
-	import Tesseract from 'tesseract.js';
+	import Tesseract, { createScheduler } from 'tesseract.js';
 
 	let video: HTMLVideoElement;
-	let img: HTMLImageElement;
-	let pieceImg: HTMLImageElement;
-	let statsImg: HTMLImageElement;
-	let setImg: HTMLImageElement;
+	let previewImg: HTMLImageElement;
 
 	let capturing = false;
-	let resolution: string;
+	let resolution: Resolution;
 	let artifactText = '';
 	let artifacts = [];
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D;
 
-	let worker: Tesseract.Worker;
+	interface Resolution {
+		full: Rectangle;
+		preview: Rectangle;
+		rects: { piece: Rectangle; stats: Rectangle; set: Rectangle };
+	}
 
-	const resolutions = [
+	interface Rectangle {
+		left: number;
+		top: number;
+		width: number;
+		height: number;
+	}
+
+	const resolutions: Resolution[] = [
 		{
-			width: 1920,
-			height: 1080,
-			preview: { x: 1400, y: 134, w: 447, h: 511 },
-			piece: { x: 1400, y: 134, w: 447, h: 30 },
-			stats: { x: 1445, y: 400, w: 400, h: 190 },
-			set: { x: 1400, y: 610, w: 447, h: 29 }
+			full: { left: 0, top: 0, width: 1920, height: 1080 },
+			preview: { left: 1400, top: 134, width: 447, height: 511 },
+			rects: {
+				piece: { left: 1400, top: 134, width: 447, height: 30 },
+				stats: { left: 1445, top: 400, width: 400, height: 190 },
+				set: { left: 1400, top: 610, width: 447, height: 29 }
+			}
 		},
 		{
-			width: 1600,
-			height: 900,
-			preview: { x: 1165, y: 140, w: 377, h: 430 },
-			piece: { x: 1165, y: 140, w: 377, h: 27 },
-			stats: { x: 1205, y: 365, w: 330, h: 155 },
-			set: { x: 1169, y: 542, w: 337, h: 23 }
+			full: { left: 0, top: 0, width: 1600, height: 900 },
+			preview: { left: 1165, top: 140, width: 377, height: 430 },
+			rects: {
+				piece: { left: 1165, top: 140, width: 377, height: 27 },
+				stats: { left: 1205, top: 365, width: 330, height: 155 },
+				set: { left: 1169, top: 542, width: 337, height: 23 }
+			}
 		}
 	];
 
@@ -61,13 +71,17 @@
 	}
 
 	async function scan() {
-		const imgURI = videoToURL('preview');
-		img.src = imgURI;
+		const previewURI = videoToURL(resolution['preview']);
+		previewImg.src = previewURI;
 
-		const artifact = await {
-			piece: (await parse('piece')).data.text,
-			stats: (await parse('stats')).data.text.split('\n'),
-			set: (await parse('set')).data.text
+		const screenURI = videoToURL(resolution['full']);
+
+		const [piece, stats, set] = await parse(screenURI, Object.values(resolution['rects']));
+
+		const artifact = {
+			piece: piece.data.text,
+			stats: stats.data.text.split('\n'),
+			set: set.data.text
 		};
 
 		artifacts = [...artifacts, artifact];
@@ -77,27 +91,26 @@
 		artifactText += artifact.stats.join('\n');
 	}
 
-	async function parse(rect: string) {
-		const imgURI = videoToURL(rect);
-		const ret = await worker.recognize(imgURI);
-		console.log(ret);
-		return ret;
+	async function parse(imgURI: string, rects: Rectangle[]) {
+		return await Promise.all(
+			rects.map((rect) => scheduler.addJob('recognize', imgURI, { rectangle: rect }))
+		);
+		// return await worker.recognize(imgURI, { rectangle: rect });
 	}
 
-	function videoToURL(rect: string) {
-		const res = resolutions[parseInt(resolution)];
-		canvas.width = res[rect].w;
-		canvas.height = res[rect].h;
+	function videoToURL(rect: Rectangle) {
+		canvas.width = rect.width;
+		canvas.height = rect.height;
 		ctx.drawImage(
 			video,
-			res[rect].x,
-			res[rect].y,
-			res[rect].w,
-			res[rect].h,
+			rect.left,
+			rect.top,
+			rect.width,
+			rect.height,
 			0,
 			0,
-			res[rect].w,
-			res[rect].h
+			rect.width,
+			rect.height
 		);
 		return canvas.toDataURL('img/png');
 	}
@@ -107,27 +120,36 @@
 		ctx = canvas.getContext('2d');
 	});
 
+	// Tesseract stuff
+
+	const scheduler = Tesseract.createScheduler();
+	let worker: Tesseract.Worker;
+
 	(async () => {
-		worker = await Tesseract.createWorker('eng');
+		const numWorkers = 3;
+		[...Array(numWorkers)].forEach(async (_, i) => {
+			scheduler.addWorker(await Tesseract.createWorker('eng'));
+		});
+		// worker = await Tesseract.createWorker('eng');
 	})();
 </script>
 
 <div class="h-full w-full flex flex-col">
 	<div class="w-full flex flex-col items-center grow-1 p-4 gap-4 bg-zinc-800">
 		<div class="flex flex-row justify-center items-center gap-4" class:hidden={!capturing}>
-			<video bind:this={video} autoplay class="max-h-72 border-0 border-zinc-200">
+			<video bind:this={video} autoplay muted class="max-h-72 border-0 border-zinc-200">
 				<track kind="captions" />
 			</video>
 			<div class="flex flex-col gap-4">
-				<img bind:this={img} class="max-h-72 w-auto" />
+				<img bind:this={previewImg} class="max-h-72 w-auto" />
 			</div>
 			<pre>{artifactText}</pre>
 		</div>
 		{#if !capturing}
 			<div class="max-w-xl">
 				<p>
-					Welcome to Artifact Cam, a tool for scanning artifacts in <i>Genshin Impact</i> and
-					<i>Honkai: Star Rail</i>.
+					Welcome to Artifact Cam, a tool for scanning artifacts in <i>Genshin Impact</i> and relics
+					in <i>Honkai: Star Rail</i>.
 				</p>
 			</div>
 		{/if}
@@ -142,7 +164,7 @@
 				</button>
 				<select bind:value={resolution} class="rounded-md p-2 bg-yellow-700 shadow-md">
 					{#each resolutions as res, i}
-						<option value={i}>{res['width']}×{res['height']}</option>
+						<option value={res}>{res['full']['width']}×{res['full']['height']}</option>
 					{/each}
 				</select>
 				<button on:click={scan} class="rounded-md p-2 bg-blue-700 shadow-md">Scan</button>
