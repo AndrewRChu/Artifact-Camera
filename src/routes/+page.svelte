@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Artifact from '../components/Artifact.svelte';
 	import { onMount } from 'svelte';
-	import Tesseract, { createScheduler } from 'tesseract.js';
+	import Tesseract from 'tesseract.js';
 
 	let video: HTMLVideoElement;
 	let previewImg: HTMLImageElement;
@@ -17,7 +17,9 @@
 	interface Resolution {
 		full: Rectangle;
 		preview: Rectangle;
-		rects: { piece: Rectangle; stats: Rectangle; set: Rectangle };
+		piece: Rectangle;
+		stats: Rectangle;
+		set: Rectangle;
 	}
 
 	interface Rectangle {
@@ -31,20 +33,16 @@
 		{
 			full: { left: 0, top: 0, width: 1920, height: 1080 },
 			preview: { left: 1400, top: 134, width: 447, height: 511 },
-			rects: {
-				piece: { left: 1400, top: 134, width: 447, height: 30 },
-				stats: { left: 1445, top: 400, width: 400, height: 190 },
-				set: { left: 1400, top: 610, width: 447, height: 29 }
-			}
+			piece: { left: 1400, top: 134, width: 447, height: 30 },
+			stats: { left: 1445, top: 400, width: 400, height: 190 },
+			set: { left: 1400, top: 610, width: 447, height: 29 }
 		},
 		{
 			full: { left: 0, top: 0, width: 1600, height: 900 },
 			preview: { left: 1165, top: 140, width: 377, height: 430 },
-			rects: {
-				piece: { left: 1165, top: 140, width: 377, height: 27 },
-				stats: { left: 1205, top: 365, width: 330, height: 155 },
-				set: { left: 1169, top: 542, width: 337, height: 23 }
-			}
+			piece: { left: 1165, top: 140, width: 377, height: 27 },
+			stats: { left: 1205, top: 365, width: 330, height: 155 },
+			set: { left: 1169, top: 542, width: 337, height: 23 }
 		}
 	];
 
@@ -76,7 +74,12 @@
 
 		const screenURI = videoToURL(resolution['full']);
 
-		const [piece, stats, set] = await parse(screenURI, Object.values(resolution['rects']));
+		const rectNames: (keyof Resolution)[] = ['piece', 'stats', 'set'];
+
+		const [piece, stats, set] = await parse(
+			screenURI,
+			Object.values(rectNames.map((rectName) => resolution[rectName]))
+		);
 
 		const artifact = {
 			piece: piece.data.text,
@@ -95,7 +98,6 @@
 		return await Promise.all(
 			rects.map((rect) => scheduler.addJob('recognize', imgURI, { rectangle: rect }))
 		);
-		// return await worker.recognize(imgURI, { rectangle: rect });
 	}
 
 	function videoToURL(rect: Rectangle) {
@@ -123,14 +125,12 @@
 	// Tesseract stuff
 
 	const scheduler = Tesseract.createScheduler();
-	let worker: Tesseract.Worker;
 
 	(async () => {
 		const numWorkers = 3;
 		[...Array(numWorkers)].forEach(async (_, i) => {
 			scheduler.addWorker(await Tesseract.createWorker('eng'));
 		});
-		// worker = await Tesseract.createWorker('eng');
 	})();
 </script>
 
