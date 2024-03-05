@@ -1,5 +1,9 @@
 <script lang="ts">
 	export let artifact: { piece: string; stats: string[]; set: string };
+
+	interface Artifact {
+		set: string;
+	}
 </script>
 
 <div class="flex flex-col border border-zinc-400">

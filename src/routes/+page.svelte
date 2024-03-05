@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Artifact from '../components/Artifact.svelte';
+	import Artifact from '$lib/components/Artifacts/Artifact.svelte';
 	import { onMount } from 'svelte';
 	import Tesseract from 'tesseract.js';
 
@@ -7,9 +7,10 @@
 	let previewImg: HTMLImageElement;
 
 	let capturing = false;
-	let resolution: Resolution;
-	let artifactText = '';
-	let artifacts = [];
+	let resolutionSelection: number;
+	$: resolution = resolutions[resolutionSelection];
+	let relicText = '';
+	let relics = [];
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D;
@@ -48,12 +49,14 @@
 
 	async function startCapture() {
 		try {
-			video.srcObject = await navigator.mediaDevices.getDisplayMedia({
+			const stream = await navigator.mediaDevices.getDisplayMedia({
 				video: {
 					displaySurface: 'window'
 				},
 				audio: false
 			});
+			video.srcObject = stream;
+			stream.getVideoTracks()[0].addEventListener('ended', () => stopCapture());
 			capturing = true;
 		} catch (err) {
 			console.error(err);
@@ -69,8 +72,7 @@
 	}
 
 	async function scan() {
-		const previewURI = videoToURL(resolution['preview']);
-		previewImg.src = previewURI;
+		previewImg.src = videoToURL(resolution['preview']);
 
 		const screenURI = videoToURL(resolution['full']);
 
@@ -81,17 +83,17 @@
 			Object.values(rectNames.map((rectName) => resolution[rectName]))
 		);
 
-		const artifact = {
+		const relic = {
 			piece: piece.data.text,
 			stats: stats.data.text.split('\n'),
 			set: set.data.text
 		};
 
-		artifacts = [...artifacts, artifact];
+		relics = [...relics, relic];
 
-		artifactText = '';
-		artifactText += artifact.piece;
-		artifactText += artifact.stats.join('\n');
+		relicText = '';
+		relicText += relic.piece;
+		relicText += relic.stats.join('\n');
 	}
 
 	async function parse(imgURI: string, rects: Rectangle[]) {
@@ -120,6 +122,21 @@
 	onMount(() => {
 		canvas = document.createElement('canvas');
 		ctx = canvas.getContext('2d');
+
+		video.addEventListener('playing', (e) => {
+			const width = video.videoWidth;
+			const height = video.videoHeight;
+			const z = width * height;
+
+			// Find closest resolution
+			const closestResolution = resolutions.reduce((a, b, i) => {
+				const c = resolutions[a]['full']['width'] * resolutions[a]['full']['height'];
+				const d = b['full']['width'] * b['full']['height'];
+				return Math.abs(d - z) < Math.abs(c - z) ? i : a;
+			}, 0);
+			resolutionSelection = closestResolution;
+			console.log(closestResolution);
+		});
 	});
 
 	// Tesseract stuff
@@ -143,37 +160,49 @@
 			<div class="flex flex-col gap-4">
 				<img bind:this={previewImg} class="max-h-72 w-auto" />
 			</div>
-			<pre>{artifactText}</pre>
+			<pre>{relicText}</pre>
 		</div>
 		{#if !capturing}
-			<div class="max-w-xl">
+			<div class="flex flex-col gap-4 max-w-lg">
+				<h1 class="text-center text-3xl"><b>Artifact Cam</b></h1>
 				<p>
-					Welcome to Artifact Cam, a tool for scanning artifacts in <i>Genshin Impact</i> and relics
-					in <i>Honkai: Star Rail</i>.
+					Welcome to Artifact Cam, a tool for scanning artifacts in <i>Genshin Impact</i>
+					and relics in <i>Honkai: Star Rail</i>. It works right here in your browser, no download
+					required!
+				</p>
+				<p>
+					To start, you will need to share your game window with the browser. Press the "Start
+					Capture" button below then select it to get started.
 				</p>
 			</div>
 		{/if}
-		<div class="flex flex-row justify-center gap-2">
-			{#if !capturing}
-				<button on:click={startCapture} class="rounded-md p-2 bg-green-700 shadow-md">
-					Start capture
-				</button>
-			{:else}
-				<button on:click={stopCapture} class="rounded-md p-2 bg-red-700 shadow-md"
-					>Stop capture
-				</button>
-				<select bind:value={resolution} class="rounded-md p-2 bg-yellow-700 shadow-md">
-					{#each resolutions as res, i}
-						<option value={res}>{res['full']['width']}×{res['full']['height']}</option>
-					{/each}
-				</select>
+		<div class="flex flex-col justify-center gap-2">
+			<div class="flex flex-row justify-center gap-2">
+				{#if !capturing}
+					<button on:click={startCapture} class="rounded-md p-2 bg-green-700 shadow-md">
+						Start Capture
+					</button>
+				{:else}
+					<button on:click={stopCapture} class="rounded-md p-2 bg-red-700 shadow-md">
+						Stop capture
+					</button>
+					<select bind:value={resolutionSelection} class="rounded-md p-2 bg-purple-700 shadow-md">
+						{#each resolutions as res, i}
+							<option value={i}>{res['full']['width']}×{res['full']['height']}</option>
+						{/each}
+					</select>
+				{/if}
+				<button on:click={() => {}} class="rounded-md p-2 bg-yellow-700 shadow-md">Help</button>
+			</div>
+			{#if capturing}
 				<button on:click={scan} class="rounded-md p-2 bg-blue-700 shadow-md">Scan</button>
 			{/if}
 		</div>
 	</div>
 	<div class="grow-1 p-4">
+		<h1 class="text-3xl"><b>Inventory</b></h1>
 		<div class="flex gap-4 flex-wrap">
-			{#each artifacts as artifact}
+			{#each relics as artifact}
 				<Artifact {artifact} />
 			{/each}
 		</div>
