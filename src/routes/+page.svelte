@@ -7,6 +7,7 @@
 	let previewImg: HTMLImageElement;
 
 	let capturing = false;
+	let scanning = false;
 	let resolutionSelection: number;
 	$: resolution = resolutions[resolutionSelection];
 	let relicText = '';
@@ -74,7 +75,8 @@
 	}
 
 	async function scan() {
-		previewImg.src = videoToURL(resolution['preview']);
+		scanning = true;
+		previewImg.src = videoToURL(resolution['stats']);
 
 		const screenURI = videoToURL(resolution['full']);
 
@@ -96,6 +98,7 @@
 		relicText = '';
 		relicText += relic.piece;
 		relicText += relic.stats.join('\n');
+		scanning = false;
 	}
 
 	async function parse(imgURI: string, rects: Rectangle[]) {
@@ -153,15 +156,15 @@
 </script>
 
 <div class="h-full w-full flex flex-col">
-	<div class="flex flex-col items-center grow-1 p-4 gap-4 bg-zinc-800">
+	<div class="flex flex-col items-center p-4 gap-4 bg-zinc-800">
 		<div class="flex flex-row justify-center items-center gap-4" class:hidden={!capturing}>
-			<div class="flex flex-col gap-2 items-center h-full p-2 rounded-md bg-zinc-900 shadow-md">
+			<div class="flex flex-col gap-2 items-center h-full p-2 rounded-md bg-zinc-700 shadow-md">
 				<h2><b>Game window</b></h2>
 				<video bind:this={video} autoplay muted class="max-h-72 border-0 border-zinc-200">
 					<track kind="captions" />
 				</video>
 			</div>
-			<div class="flex flex-col gap-2 items-center h-full p-2 rounded-md bg-zinc-900 shadow-md">
+			<div class="flex flex-col gap-2 items-center h-full p-2 rounded-md bg-zinc-700 shadow-md">
 				<h2><b>Scan preview</b></h2>
 				<img bind:this={previewImg} class="max-h-72 w-auto" />
 			</div>
@@ -201,40 +204,57 @@
 					on:click={() => {
 						showFAQ = !showFAQ;
 					}}
-					class="rounded-md p-2 bg-yellow-700 shadow-md">Help</button
+					class="rounded-md p-2 bg-yellow-700 shadow-md"
+					class:bg-yellow-800={showFAQ}
 				>
+					{#if showFAQ}Hide FAQ
+					{:else}FAQ{/if}
+				</button>
 			</div>
 			{#if capturing}
-				<button on:click={scan} class="rounded-md p-2 bg-blue-700 shadow-md">Scan</button>
+				<button
+					on:click={scan}
+					disabled={scanning}
+					class="rounded-md p-2 bg-blue-700 shadow-md"
+					class:bg-blue-800={scanning}>Scan</button
+				>
 			{/if}
 		</div>
 		{#if showFAQ}
-			<div class="flex flex-col gap-4 max-w-lg w-full">
-				<h1 class="text-center text-3xl"><b></b></h1>
+			<div class="flex flex-col gap-4 max-w-lg w-full p-4 rounded-md bg-zinc-700 shadow-md">
+				<h1 class="text-center text-xl"><b>FAQ</b></h1>
 				<div>
 					<h2><b>I can't screenshare the game window</b></h2>
-					<p>Open the window then come back to this tab. Then it should appear.</p>
+					<ul class="list-disc list-inside">
+						<li>Open the window then come back to this tab. Then it should appear.</li>
+						<li>
+							If you're playing in fullscreen, go to windowded mode first then you can go back to
+							fullscreen after you select it.
+						</li>
+					</ul>
 				</div>
 				<div>
 					<h2><b>The artifact isn't scanning</b></h2>
-					<p>
-						Make sure the selected resolution matches the resolution of your game. You can check
-						your resolution in the settings.
-					</p>
-					<p>
-						If you are using a low resolution but in fullscreen, press ALT + ENTER to go to windowed
-						mode then try again.
-					</p>
+					<ul class="list-disc list-inside">
+						<li>
+							Make sure the selected resolution matches the resolution of your game. You can check
+							your resolution in the settings.
+						</li>
+						<li>
+							If you are using a lower resolution than your monitor but in fullscreen, press
+							<kbd>alt</kbd> + <kbd>enter</kbd> to go to windowed mode.
+						</li>
+					</ul>
 				</div>
 			</div>
 		{/if}
 	</div>
-	<div class="flex flex-col grow-1 p-4 gap-4">
+	<div class="flex flex-col p-4 gap-4">
 		<h1 class="text-3xl"><b>Inventory</b></h1>
-		<div class="flex gap-4 flex-wrap">
-			{#each relics as artifact}
-				<Artifact {artifact} />
-			{/each}
-		</div>
+	</div>
+	<div class="flex gap-4 flex-wrap p-4">
+		{#each relics as artifact}
+			<Artifact {artifact} />
+		{/each}
 	</div>
 </div>
