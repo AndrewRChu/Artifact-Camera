@@ -15,6 +15,8 @@
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D;
 
+	let showFAQ = false;
+
 	interface Resolution {
 		full: Rectangle;
 		preview: Rectangle;
@@ -135,7 +137,6 @@
 				return Math.abs(d - z) < Math.abs(c - z) ? i : a;
 			}, 0);
 			resolutionSelection = closestResolution;
-			console.log(closestResolution);
 		});
 	});
 
@@ -152,18 +153,22 @@
 </script>
 
 <div class="h-full w-full flex flex-col">
-	<div class="w-full flex flex-col items-center grow-1 p-4 gap-4 bg-zinc-800">
+	<div class="flex flex-col items-center grow-1 p-4 gap-4 bg-zinc-800">
 		<div class="flex flex-row justify-center items-center gap-4" class:hidden={!capturing}>
-			<video bind:this={video} autoplay muted class="max-h-72 border-0 border-zinc-200">
-				<track kind="captions" />
-			</video>
-			<div class="flex flex-col gap-4">
+			<div class="flex flex-col gap-2 items-center h-full p-2 rounded-md bg-zinc-900 shadow-md">
+				<h2><b>Game window</b></h2>
+				<video bind:this={video} autoplay muted class="max-h-72 border-0 border-zinc-200">
+					<track kind="captions" />
+				</video>
+			</div>
+			<div class="flex flex-col gap-2 items-center h-full p-2 rounded-md bg-zinc-900 shadow-md">
+				<h2><b>Scan preview</b></h2>
 				<img bind:this={previewImg} class="max-h-72 w-auto" />
 			</div>
-			<pre>{relicText}</pre>
+			<!-- <pre>{relicText}</pre> -->
 		</div>
 		{#if !capturing}
-			<div class="flex flex-col gap-4 max-w-lg">
+			<div class="flex flex-col gap-4 max-w-lg w-full">
 				<h1 class="text-center text-3xl"><b>Artifact Cam</b></h1>
 				<p>
 					Welcome to Artifact Cam, a tool for scanning artifacts in <i>Genshin Impact</i>
@@ -192,14 +197,39 @@
 						{/each}
 					</select>
 				{/if}
-				<button on:click={() => {}} class="rounded-md p-2 bg-yellow-700 shadow-md">Help</button>
+				<button
+					on:click={() => {
+						showFAQ = !showFAQ;
+					}}
+					class="rounded-md p-2 bg-yellow-700 shadow-md">Help</button
+				>
 			</div>
 			{#if capturing}
 				<button on:click={scan} class="rounded-md p-2 bg-blue-700 shadow-md">Scan</button>
 			{/if}
 		</div>
+		{#if showFAQ}
+			<div class="flex flex-col gap-4 max-w-lg w-full">
+				<h1 class="text-center text-3xl"><b></b></h1>
+				<div>
+					<h2><b>I can't screenshare the game window</b></h2>
+					<p>Open the window then come back to this tab. Then it should appear.</p>
+				</div>
+				<div>
+					<h2><b>The artifact isn't scanning</b></h2>
+					<p>
+						Make sure the selected resolution matches the resolution of your game. You can check
+						your resolution in the settings.
+					</p>
+					<p>
+						If you are using a low resolution but in fullscreen, press ALT + ENTER to go to windowed
+						mode then try again.
+					</p>
+				</div>
+			</div>
+		{/if}
 	</div>
-	<div class="grow-1 p-4">
+	<div class="flex flex-col grow-1 p-4 gap-4">
 		<h1 class="text-3xl"><b>Inventory</b></h1>
 		<div class="flex gap-4 flex-wrap">
 			{#each relics as artifact}
