@@ -1,5 +1,14 @@
-<script>
+<script lang="ts">
 	import '../app.css';
+	import { relicSetsData } from '../stores';
+
+	(async () => {
+		const data = await fetch(
+			'https://raw.githubusercontent.com/kel-z/HSR-Data/main/output/game_data_verbose_with_icons.json'
+		);
+
+		$relicSetsData = (await data.json())['relic_sets'];
+	})();
 </script>
 
 <svelte:head>

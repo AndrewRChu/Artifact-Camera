@@ -3,6 +3,7 @@
 	import Tesseract from 'tesseract.js';
 	import relicsData from '$lib/relics.json';
 	import type { Rectangle, Resolution } from '$lib/types';
+	import { relicSetsData } from '../stores';
 
 	let video: HTMLVideoElement;
 	let previewImg: HTMLImageElement;
@@ -32,7 +33,7 @@
 			preview: { left: 1165, top: 140, width: 377, height: 430 },
 			piece: { left: 1165, top: 140, width: 377, height: 27 },
 			stats: { left: 1205, top: 365, width: 330, height: 155 },
-			set: { left: 1169, top: 542, width: 337, height: 23 }
+			set: { left: 1169, top: 542, width: 377, height: 23 }
 		}
 	];
 
@@ -74,19 +75,33 @@
 		);
 
 		const relic = {
-			piece: piece.data.text,
+			set: set.data.text.trim(),
+			piece: piece.data.text.trim(),
 			stats: stats.data.text.split('\n').map((stat) => {
 				return { name: stat.split(' ').slice(0, -1).join(' '), value: stat.split(' ').slice(-1) };
-			}),
-			set: set.data.text
+			})
 		};
+
+		if (!validateRelic(relic)) {
+			// Do something here
+			console.log('not a relic');
+			scanning = false;
+			return;
+		}
 
 		relics = [...relics, relic];
 
-		relicText = '';
-		relicText += relic.piece;
-		relicText += relic.stats.join('\n');
 		scanning = false;
+	}
+
+	function validateRelic(relic) {
+		// Need to fix for the Watchmaker set because it's too long to fit on one line
+		// maybe just check if the name is in one of the set names, rather than checking for equality
+		if (!(relic.set in $relicSetsData)) return false;
+		const setPieces = $relicSetsData[relic.set]['pieces'];
+		if (Object.values(setPieces).filter((value) => value.name == relic.piece).length == 0)
+			return false;
+		return true;
 	}
 
 	async function parse(imgURI: string, rects: Rectangle[]) {
